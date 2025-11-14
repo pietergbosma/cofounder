@@ -1,0 +1,30 @@
+📄 Extracted from page: Login – Vercel
+URL: https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fcofounder-9cg807rw8-pietergbosmas-projects.vercel.app%252F%26nonce%3D5551bffa25ea642095065471c37c69634dbb1c9e76174d5fd3413885a396cdbd
+
+Extracted content:
+```json
+{
+  "title": "Login – Vercel",
+  "url": "https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fcofounder-9cg807rw8-pietergbosmas-projects.vercel.app%252F%26nonce%3D5551bffa25ea642095065471c37c69634dbb1c9e76174d5fd3413885a396cdbd",
+  "summary": "This page is the login interface for Vercel, presenting various authentication methods to access an account. It provides options to continue with different identity providers or email, along with a prompt for new users to sign up and links to legal information.",
+  "key_points": [
+    "The page title is 'Login – Vercel'.",
+    "The main heading is 'Log in to Vercel'.",
+    "Users can log in using 'Continue with Email'.",
+    "Users can log in using 'Continue with Google'.",
+    "Users can log in using 'Continue with GitHub'.",
+    "Users can log in using 'Continue with SAML SSO'.",
+    "Users can log in using 'Continue with Passkey'.",
+    "There is an option to 'Show other options', implying more login methods may be available.",
+    "A 'Sign Up' link is prominently displayed at the top right.",
+    "A prompt 'Don't have an account?' leads to a 'Sign Up' link.",
+    "Legal links for 'Terms' and 'Privacy Policy' are available at the bottom."
+  ],
+  "relevant_links": [
+    "/signup?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fcofounder-9cg807rw8-pietergbosmas-projects.vercel.app%252F%26nonce%3D5551bffa25ea642095065471c37c69634dbb1c9e76174d5fd3413885a396cdbd",
+    "/legal/terms",
+    "/legal/privacy-policy"
+  ],
+  "file_name": "vercel_login_page_content.json"
+}
+```

@@ -1,5 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { EnvironmentDiagnostic, setupEnvironmentDiagnostic } from './components/EnvironmentDiagnostic';
+import { VersionBanner } from './components/VersionBanner';
+
+// Setup environment diagnostic on app start
+setupEnvironmentDiagnostic();
 
 // Pages
 import { LoginPage } from './pages/LoginPage';
@@ -230,6 +235,8 @@ function App() {
           {/* Catch all - redirect to home */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        <EnvironmentDiagnostic />
+        <VersionBanner />
       </AuthProvider>
     </BrowserRouter>
   );
