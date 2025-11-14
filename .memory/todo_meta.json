@@ -12,28 +12,28 @@
         "id": "2",
         "content": "Design enhanced profile page layout",
         "details": "- Create modern, professional profile layout with better visual hierarchy\n- Improve project showcase cards with enhanced formatting\n- Add skill categories and enhanced visualization\n- Include availability status and location display\n- Add social media and portfolio integration sections\n- Implement profile completion percentage indicator",
-        "status": "in_progress",
+        "status": "completed",
         "priority": "high"
       },
       "3": {
         "id": "3",
         "content": "Create dedicated edit profile page",
         "details": "- Build separate EditProfilePage component\n- Implement image upload functionality for avatars\n- Add form validation and improved UX\n- Create structured professional fields\n- Add progress indicator for profile completion\n- Include portfolio/social media management",
-        "status": "in_progress",
+        "status": "completed",
         "priority": "high"
       },
       "4": {
         "id": "4",
         "content": "Update database schema for new profile fields",
         "details": "- Add availability_status field\n- Add location and timezone fields\n- Add social media links (LinkedIn, GitHub, portfolio)\n- Add portfolio projects array\n- Add profile completion tracking",
-        "status": "pending",
+        "status": "completed",
         "priority": "high"
       },
       "5": {
         "id": "5",
         "content": "Update profile routing and navigation",
         "details": "- Update App.tsx to include edit profile route\n- Update navbar to link to edit profile page\n- Ensure proper navigation between view and edit modes",
-        "status": "pending",
+        "status": "completed",
         "priority": "high"
       },
       "6": {
