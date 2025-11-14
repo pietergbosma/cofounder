@@ -34,7 +34,7 @@ export const SignupPage: React.FC = () => {
 
     try {
       await signup(email, password, name, userType);
-      navigate('/');
+      navigate('/dashboard');
     } catch (err) {
       setError('Failed to create account');
     } finally {

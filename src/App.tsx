@@ -9,6 +9,7 @@ setupEnvironmentDiagnostic();
 // Pages
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
+import { LandingPage } from './pages/LandingPage';
 import { HomePage } from './pages/HomePage';
 import { ProfilePage } from './pages/ProfilePage';
 import { BrowseProjectsPage } from './pages/BrowseProjectsPage';
@@ -59,7 +60,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (user) {
-    return <Navigate to="/" />;
+    return <Navigate to="/dashboard" />;
   }
 
   return <>{children}</>;
@@ -71,6 +72,8 @@ function App() {
       <AuthProvider>
         <Routes>
           {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
+          
           <Route
             path="/login"
             element={
@@ -90,7 +93,7 @@ function App() {
 
           {/* Protected Routes */}
           <Route
-            path="/"
+            path="/dashboard"
             element={
               <ProtectedRoute>
                 <HomePage />
