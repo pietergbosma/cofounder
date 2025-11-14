@@ -1,0 +1,25 @@
+📄 Extracted from page: Login – Vercel
+URL: https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fcofounder-9cg807rw8-pietergbosmas-projects.vercel.app%252F%26nonce%3D5551bffa25ea642095065471c37c69634dbb1c9e76174d5fd3413885a396cdbd
+
+Extracted content:
+```json
+{
+  "title": "Login – Vercel",
+  "url": "https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fcofounder-9cg807rw8-pietergbosmas-projects.vercel.app%252F%26nonce%3D5551bffa25ea642095065471c37c69634dbb1c9e76174d5fd3413885a396cdbd",
+  "summary": "This page is the Vercel login interface, prompting users to log in to their Vercel account. It provides multiple authentication methods including email, Google, GitHub, SAML SSO, and Passkey. There are also options to sign up for a new account and links to Vercel's legal terms and privacy policy. No version indicators, error messages, or references to old/new versions were found, nor were any purple banners present in the provided text content.",
+  "key_points": [
+    "The page's primary purpose is user login for Vercel.",
+    "Login options include: Continue with Email, Continue with Google, Continue with GitHub, Continue with SAML SSO, Continue with Passkey, and Show other options.",
+    "Users can sign up for an account via links provided at the top and bottom of the page.",
+    "Legal information is accessible through 'Terms' and 'Privacy Policy' links.",
+    "No version indicators, error messages, or specific references to old versus new versions were identified.",
+    "No 'purple banners' or similar prominent version-related alerts were found in the provided content."
+  ],
+  "relevant_links": [
+    "/signup?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fcofounder-9cg807rw8-pietergbosmas-projects.vercel.app%252F%26nonce%3D5551bffa25ea642095065471c37c69634dbb1c9e76174d5fd3413885a396cdbd",
+    "/legal/terms",
+    "/legal/privacy-policy"
+  ],
+  "file_name": "vercel_login_page.json"
+}
+```
