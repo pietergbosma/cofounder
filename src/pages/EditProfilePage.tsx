@@ -75,7 +75,7 @@ export const EditProfilePage: React.FC = () => {
           setValue('availability_status', profileData.availability_status || 'available');
           setValue('skills', profileData.skills || []);
           setValue('skill_proficiencies', profileData.skill_proficiencies || {});
-          setValue('achievements', profileData.achievements || []);
+          setValue('achievements', Array.isArray(profileData.achievements) ? profileData.achievements : []);
           setValue('social_links', {
             linkedin: profileData.linkedin_url || '',
             github: profileData.github_url || '',
@@ -131,10 +131,21 @@ export const EditProfilePage: React.FC = () => {
     setSaveSuccess(false);
 
     try {
-      await userService.updateUser(currentUser.id, {
+      // Transform social_links from form format to database format
+      const databaseUpdates = {
         ...data,
         avatar_url: avatarUrl,
-      });
+        // Convert social_links JSON to individual URL fields
+        linkedin_url: data.social_links?.linkedin || '',
+        github_url: data.social_links?.github || '',
+        twitter_url: data.social_links?.twitter || '',
+        website_url: data.social_links?.website || '',
+        portfolio_url: data.social_links?.portfolio || '',
+        // Remove the JSON social_links field as we're using individual fields
+        social_links: undefined,
+      };
+      
+      await userService.updateUser(currentUser.id, databaseUpdates);
       setSaveSuccess(true);
       
       // Reload fresh data to ensure form shows updated values
@@ -149,7 +160,7 @@ export const EditProfilePage: React.FC = () => {
         setValue('availability_status', updatedProfile.availability_status || 'available');
         setValue('skills', updatedProfile.skills || []);
         setValue('skill_proficiencies', updatedProfile.skill_proficiencies || {});
-        setValue('achievements', updatedProfile.achievements || []);
+        setValue('achievements', Array.isArray(updatedProfile.achievements) ? updatedProfile.achievements : []);
         setValue('social_links', {
           linkedin: updatedProfile.linkedin_url || '',
           github: updatedProfile.github_url || '',
