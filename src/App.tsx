@@ -1,9 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { EnvironmentDiagnostic, setupEnvironmentDiagnostic } from './components/EnvironmentDiagnostic';
-import { VersionBanner } from './components/VersionBanner';
-import { SupabaseConfigWarning } from './components/SupabaseConfigWarning';
-import { isSupabaseConfigured } from './lib/supabaseClient';
 
 // Setup environment diagnostic on app start
 setupEnvironmentDiagnostic();
@@ -70,11 +67,6 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
-  // Show configuration warning if Supabase is not configured
-  if (!isSupabaseConfigured) {
-    return <SupabaseConfigWarning />;
-  }
-
   return (
     <BrowserRouter>
       <AuthProvider>
