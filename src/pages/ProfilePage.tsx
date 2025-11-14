@@ -40,22 +40,32 @@ export const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!profileUserId) return;
+      if (!profileUserId) {
+        setLoading(false);
+        return;
+      }
       
       try {
-        const [userData, projectData, reviewData] = await Promise.all([
+        // Use Promise.allSettled to prevent one failing call from breaking everything
+        const results = await Promise.allSettled([
           userService.getUserById(profileUserId),
           projectMemberService.getMembersByUser(profileUserId),
           reviewService.getReviewsForUser(profileUserId),
         ]);
 
-        if (userData) {
-          setUser(userData);
+        const [userResult, projectResult, reviewResult] = results;
+
+        if (userResult.status === 'fulfilled' && userResult.value) {
+          setUser(userResult.value);
         }
-        setProjects(projectData);
-        setReviews(reviewData);
+        setProjects(projectResult.status === 'fulfilled' ? projectResult.value : []);
+        setReviews(reviewResult.status === 'fulfilled' ? reviewResult.value : []);
       } catch (error) {
         console.error('Error fetching profile:', error);
+        // Set fallback data
+        setUser(null);
+        setProjects([]);
+        setReviews([]);
       } finally {
         setLoading(false);
       }

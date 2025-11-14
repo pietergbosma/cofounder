@@ -80,35 +80,50 @@ export const authService = {
   },
 
   async getCurrentUser(): Promise<User | null> {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) return null;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return null;
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .maybeSingle();
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
 
-    return profile as User | null;
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return null;
+      }
+
+      return profile as User | null;
+    } catch (err) {
+      console.error('Failed to get current user:', err);
+      return null;
+    }
   },
 };
 
 // ============= USER SERVICES =============
 export const userService = {
   async getUserById(id: string): Promise<User | null> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
 
-    if (error) {
-      console.error('Error fetching user:', error);
+      if (error) {
+        console.error('Error fetching user:', error);
+        return null;
+      }
+
+      return data as User | null;
+    } catch (err) {
+      console.error('Failed to fetch user:', err);
       return null;
     }
-
-    return data as User | null;
   },
 
   async updateUser(id: string, updates: Partial<User>): Promise<User> {
@@ -215,14 +230,22 @@ export const projectService = {
   },
 
   async getProjectsByOwner(ownerId: string): Promise<Project[]> {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('owner_id', ownerId)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('owner_id', ownerId)
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return (data || []) as Project[];
+      if (error) {
+        console.error('Error fetching projects:', error);
+        return [];
+      }
+      return (data || []) as Project[];
+    } catch (err) {
+      console.error('Failed to fetch projects:', err);
+      return [];
+    }
   },
 
   async createProject(project: Omit<Project, 'id' | 'created_at'>): Promise<Project> {
@@ -393,41 +416,49 @@ export const positionService = {
 // ============= APPLICATION SERVICES =============
 export const applicationService = {
   async getApplicationsByApplicant(applicantId: string): Promise<Application[]> {
-    const { data, error } = await supabase
-      .from('applications')
-      .select('*')
-      .eq('applicant_id', applicantId)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('applications')
+        .select('*')
+        .eq('applicant_id', applicantId)
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    if (!data || data.length === 0) return [];
+      if (error) {
+        console.error('Error fetching applications:', error);
+        return [];
+      }
+      if (!data || data.length === 0) return [];
 
-    // Fetch positions and projects
-    const positionIds = [...new Set(data.map(a => a.position_id))];
-    const { data: positions } = await supabase
-      .from('positions')
-      .select('*')
-      .in('id', positionIds);
+      // Fetch positions and projects
+      const positionIds = [...new Set(data.map(a => a.position_id))];
+      const { data: positions } = await supabase
+        .from('positions')
+        .select('*')
+        .in('id', positionIds);
 
-    if (!positions || positions.length === 0) {
-      return data.map(a => ({ ...a, position: undefined })) as Application[];
+      if (!positions || positions.length === 0) {
+        return data.map(a => ({ ...a, position: undefined })) as Application[];
+      }
+
+      const projectIds = [...new Set(positions.map(p => p.project_id))];
+      const { data: projects } = await supabase
+        .from('projects')
+        .select('*')
+        .in('id', projectIds);
+
+      const positionsWithProjects = positions.map(p => ({
+        ...p,
+        project: projects?.find(proj => proj.id === p.project_id),
+      }));
+
+      return data.map(a => ({
+        ...a,
+        position: positionsWithProjects.find(p => p.id === a.position_id),
+      })) as Application[];
+    } catch (err) {
+      console.error('Failed to fetch applications:', err);
+      return [];
     }
-
-    const projectIds = [...new Set(positions.map(p => p.project_id))];
-    const { data: projects } = await supabase
-      .from('projects')
-      .select('*')
-      .in('id', projectIds);
-
-    const positionsWithProjects = positions.map(p => ({
-      ...p,
-      project: projects?.find(proj => proj.id === p.project_id),
-    }));
-
-    return data.map(a => ({
-      ...a,
-      position: positionsWithProjects.find(p => p.id === a.position_id),
-    })) as Application[];
   },
 
   async getApplicationsByPosition(positionId: string): Promise<Application[]> {

@@ -26,28 +26,42 @@ export const HomePage: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       
       try {
-        const [projects, applications, memberships, mrrData] = await Promise.all([
+        // Use Promise.allSettled to prevent one failing call from breaking everything
+        const results = await Promise.allSettled([
           projectService.getProjectsByOwner(user.id),
           applicationService.getApplicationsByApplicant(user.id),
           projectMemberService.getMembersByUser(user.id),
           mrrService.getMRRByUser(user.id),
         ]);
 
-        setMyProjects(projects);
-        setMyApplications(applications);
-        setMyMemberships(memberships);
+        const [projectsResult, applicationsResult, membershipsResult, mrrResult] = results;
 
-        // Calculate total MRR
-        const total = mrrData.reduce((sum, project) => {
-          const latestMRR = project.data[project.data.length - 1]?.revenue || 0;
-          return sum + latestMRR;
-        }, 0);
-        setTotalMRR(total);
+        // Set successful results, use empty arrays for failed ones
+        setMyProjects(projectsResult.status === 'fulfilled' ? projectsResult.value : []);
+        setMyApplications(applicationsResult.status === 'fulfilled' ? applicationsResult.value : []);
+        setMyMemberships(membershipsResult.status === 'fulfilled' ? membershipsResult.value : []);
+
+        // Calculate total MRR if successful
+        if (mrrResult.status === 'fulfilled') {
+          const total = mrrResult.value.reduce((sum, project) => {
+            const latestMRR = project.data[project.data.length - 1]?.revenue || 0;
+            return sum + latestMRR;
+          }, 0);
+          setTotalMRR(total);
+        }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        // Set empty arrays as fallback
+        setMyProjects([]);
+        setMyApplications([]);
+        setMyMemberships([]);
+        setTotalMRR(0);
       } finally {
         setLoading(false);
       }
