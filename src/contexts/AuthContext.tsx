@@ -39,19 +39,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const fetchUserProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
 
-    if (error) {
-      console.error('Error fetching user profile:', error);
-      return;
-    }
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        // Don't fail completely - user might still be logged in
+        setUser({ id: userId } as User);
+        return;
+      }
 
-    if (data) {
-      setUser(data as User);
+      if (data) {
+        setUser(data as User);
+      }
+    } catch (err) {
+      console.error('Failed to fetch user profile:', err);
+      // Set minimal user data to prevent hanging
+      setUser({ id: userId } as User);
     }
   };
 
