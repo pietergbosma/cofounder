@@ -163,7 +163,7 @@ export const EditProfilePage: React.FC = () => {
         setValue('achievements', Array.isArray(updatedProfile.achievements) ? updatedProfile.achievements : []);
         setValue('social_links', {
           linkedin: updatedProfile.linkedin_url || '',
-          github: updatedProfile.github  || '',
+          github: updatedProfile.github_url  || '',
           twitter: updatedProfile.twitter_url || '',
           website: updatedProfile.website_url || '',
           portfolio: updatedProfile.portfolio_url || '',
