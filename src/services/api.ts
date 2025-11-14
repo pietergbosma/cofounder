@@ -1,9 +1,4 @@
-// Service layer for API calls
-// TODO: Integrate with Supabase by:
-// 1. Install Supabase client: pnpm add @supabase/supabase-js
-// 2. Create supabaseClient.ts with your credentials
-// 3. Replace mock data calls with Supabase queries
-
+// Service layer for Supabase API calls
 import {
   User,
   Project,
@@ -16,395 +11,645 @@ import {
   Investment,
   InvestorReview,
 } from '../types';
-import {
-  mockUsers,
-  mockProjects,
-  mockPositions,
-  mockApplications,
-  mockProjectMembers,
-  mockReviews,
-  mockMRRData,
-} from '../data/mockData';
-
-// TODO: Uncomment when Supabase is integrated
-// import { supabase } from './supabaseClient';
-
-// Simulate API delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+import { supabase } from '../lib/supabaseClient';
 
 // ============= AUTH SERVICES =============
-// TODO: Replace with Supabase Auth
 export const authService = {
   async login(email: string, password: string): Promise<User> {
-    await delay(500);
-    // TODO: Replace with: const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    const user = mockUsers.find(u => u.email === email);
-    if (!user) throw new Error('Invalid credentials');
-    return user;
+    const { data, error } = await supabase.auth.signInWithPassword({ 
+      email, 
+      password 
+    });
+
+    if (error) throw error;
+
+    if (!data.user) throw new Error('Login failed');
+
+    // Fetch user profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .maybeSingle();
+
+    if (profileError) throw profileError;
+    if (!profile) throw new Error('Profile not found');
+
+    return profile as User;
   },
 
-  async signup(email: string, password: string, name: string, userType: 'founder' | 'investor' = 'founder'): Promise<User> {
-    await delay(500);
-    // TODO: Replace with: const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name, user_type: userType } } })
-    const newUser: User = {
-      id: Math.random().toString(36).substr(2, 9),
+  async signup(
+    email: string, 
+    password: string, 
+    name: string, 
+    userType: 'founder' | 'investor' = 'founder'
+  ): Promise<User> {
+    const { data, error } = await supabase.auth.signUp({
       email,
-      name,
-      bio: '',
-      skills: [],
-      experience: '',
-      contact: '',
-      avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
-      created_at: new Date().toISOString(),
-      user_type: userType,
-    };
-    mockUsers.push(newUser);
-    return newUser;
+      password,
+      options: {
+        data: {
+          name,
+          user_type: userType
+        }
+      }
+    });
+
+    if (error) throw error;
+    if (!data.user) throw new Error('Signup failed');
+
+    // Wait for trigger to create profile
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Fetch created profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .maybeSingle();
+
+    if (profileError) throw profileError;
+    if (!profile) throw new Error('Profile creation failed');
+
+    return profile as User;
   },
 
   async logout(): Promise<void> {
-    await delay(300);
-    // TODO: Replace with: await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   },
 
   async getCurrentUser(): Promise<User | null> {
-    // TODO: Replace with: const { data: { user } } = await supabase.auth.getUser()
-    // For now, return first user as logged in
-    return mockUsers[0];
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) return null;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    return profile as User | null;
   },
 };
 
 // ============= USER SERVICES =============
 export const userService = {
   async getUserById(id: string): Promise<User | null> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('users').select('*').eq('id', id).single()
-    return mockUsers.find(u => u.id === id) || null;
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching user:', error);
+      return null;
+    }
+
+    return data as User | null;
   },
 
   async updateUser(id: string, updates: Partial<User>): Promise<User> {
-    await delay(500);
-    // TODO: Replace with: const { data, error } = await supabase.from('users').update(updates).eq('id', id).select().single()
-    const userIndex = mockUsers.findIndex(u => u.id === id);
-    if (userIndex === -1) throw new Error('User not found');
-    mockUsers[userIndex] = { ...mockUsers[userIndex], ...updates };
-    return mockUsers[userIndex];
+    // Verify authentication
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+    if (!currentUser || currentUser.id !== id) {
+      throw new Error('Unauthorized');
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Update failed');
+
+    return data as User;
   },
 
   async getReviewsForUser(userId: string): Promise<Review[]> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('reviews').select('*, reviewer:users!reviewer_id(*), project:projects(*)').eq('reviewee_id', userId)
-    return mockReviews
-      .filter(r => r.reviewee_id === userId)
-      .map(r => ({
-        ...r,
-        reviewer: mockUsers.find(u => u.id === r.reviewer_id),
-        project: mockProjects.find(p => p.id === r.project_id),
-      }));
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('reviewee_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) return [];
+
+    // Manually fetch reviewer and project data
+    const reviewerIds = [...new Set(data.map(r => r.reviewer_id))];
+    const projectIds = [...new Set(data.map(r => r.project_id))];
+
+    const [reviewersResult, projectsResult] = await Promise.all([
+      supabase.from('profiles').select('*').in('id', reviewerIds),
+      supabase.from('projects').select('*').in('id', projectIds)
+    ]);
+
+    const reviewers = reviewersResult.data || [];
+    const projects = projectsResult.data || [];
+
+    return data.map(r => ({
+      ...r,
+      reviewer: reviewers.find(u => u.id === r.reviewer_id),
+      project: projects.find(p => p.id === r.project_id),
+    })) as Review[];
   },
 };
 
 // ============= PROJECT SERVICES =============
 export const projectService = {
   async getAllProjects(): Promise<Project[]> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('projects').select('*, owner:users(*)')
-    return mockProjects.map(p => ({
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    // Manually fetch owner data
+    const ownerIds = [...new Set(data.map(p => p.owner_id))];
+    const { data: owners } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', ownerIds);
+
+    return data.map(p => ({
       ...p,
-      owner: mockUsers.find(u => u.id === p.owner_id),
-    }));
+      owner: owners?.find(u => u.id === p.owner_id),
+    })) as Project[];
   },
 
   async getProjectById(id: string): Promise<Project | null> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('projects').select('*, owner:users(*)').eq('id', id).single()
-    const project = mockProjects.find(p => p.id === id);
-    if (!project) return null;
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching project:', error);
+      return null;
+    }
+
+    if (!data) return null;
+
+    // Fetch owner
+    const { data: owner } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', data.owner_id)
+      .maybeSingle();
+
     return {
-      ...project,
-      owner: mockUsers.find(u => u.id === project.owner_id),
-    };
+      ...data,
+      owner,
+    } as Project;
   },
 
   async getProjectsByOwner(ownerId: string): Promise<Project[]> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('projects').select('*').eq('owner_id', ownerId)
-    return mockProjects.filter(p => p.owner_id === ownerId);
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('owner_id', ownerId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []) as Project[];
   },
 
   async createProject(project: Omit<Project, 'id' | 'created_at'>): Promise<Project> {
-    await delay(500);
-    // TODO: Replace with: const { data, error } = await supabase.from('projects').insert(project).select().single()
-    const newProject: Project = {
-      ...project,
-      id: Math.random().toString(36).substr(2, 9),
-      created_at: new Date().toISOString(),
-    };
-    mockProjects.push(newProject);
-    return newProject;
+    const { data, error } = await supabase
+      .from('projects')
+      .insert(project)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Create failed');
+
+    return data as Project;
   },
 
   async updateProject(id: string, updates: Partial<Project>): Promise<Project> {
-    await delay(500);
-    // TODO: Replace with: const { data, error } = await supabase.from('projects').update(updates).eq('id', id).select().single()
-    const projectIndex = mockProjects.findIndex(p => p.id === id);
-    if (projectIndex === -1) throw new Error('Project not found');
-    mockProjects[projectIndex] = { ...mockProjects[projectIndex], ...updates };
-    return mockProjects[projectIndex];
+    const { data, error } = await supabase
+      .from('projects')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Update failed');
+
+    return data as Project;
   },
 
   async deleteProject(id: string): Promise<void> {
-    await delay(500);
-    // TODO: Replace with: const { error } = await supabase.from('projects').delete().eq('id', id)
-    const projectIndex = mockProjects.findIndex(p => p.id === id);
-    if (projectIndex !== -1) {
-      mockProjects.splice(projectIndex, 1);
-    }
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
   },
 };
 
 // ============= POSITION SERVICES =============
 export const positionService = {
   async getPositionsByProject(projectId: string): Promise<Position[]> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('positions').select('*').eq('project_id', projectId)
-    return mockPositions.filter(p => p.project_id === projectId);
+    const { data, error } = await supabase
+      .from('positions')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []) as Position[];
   },
 
   async getPositionById(id: string): Promise<Position | null> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('positions').select('*, project:projects(*, owner:users(*))').eq('id', id).single()
-    const position = mockPositions.find(p => p.id === id);
-    if (!position) return null;
-    const project = mockProjects.find(p => p.id === position.project_id);
-    return {
-      ...position,
-      project: project ? {
-        ...project,
-        owner: mockUsers.find(u => u.id === project.owner_id),
-      } : undefined,
-    };
+    const { data, error } = await supabase
+      .from('positions')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching position:', error);
+      return null;
+    }
+
+    if (!data) return null;
+
+    // Fetch project and owner
+    const { data: project } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', data.project_id)
+      .maybeSingle();
+
+    if (project) {
+      const { data: owner } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', project.owner_id)
+        .maybeSingle();
+
+      return {
+        ...data,
+        project: {
+          ...project,
+          owner,
+        },
+      } as Position;
+    }
+
+    return data as Position;
   },
 
   async getAllOpenPositions(): Promise<Position[]> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('positions').select('*, project:projects(*, owner:users(*))').eq('status', 'open')
-    return mockPositions
-      .filter(p => p.status === 'open')
-      .map(p => {
-        const project = mockProjects.find(proj => proj.id === p.project_id);
-        return {
-          ...p,
-          project: project ? {
-            ...project,
-            owner: mockUsers.find(u => u.id === project.owner_id),
-          } : undefined,
-        };
-      });
+    const { data, error } = await supabase
+      .from('positions')
+      .select('*')
+      .eq('status', 'open')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    // Fetch projects and owners
+    const projectIds = [...new Set(data.map(p => p.project_id))];
+    const { data: projects } = await supabase
+      .from('projects')
+      .select('*')
+      .in('id', projectIds);
+
+    if (!projects || projects.length === 0) {
+      return data.map(p => ({ ...p, project: undefined })) as Position[];
+    }
+
+    const ownerIds = [...new Set(projects.map(p => p.owner_id))];
+    const { data: owners } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', ownerIds);
+
+    const projectsWithOwners = projects.map(p => ({
+      ...p,
+      owner: owners?.find(u => u.id === p.owner_id),
+    }));
+
+    return data.map(p => ({
+      ...p,
+      project: projectsWithOwners.find(proj => proj.id === p.project_id),
+    })) as Position[];
   },
 
   async createPosition(position: Omit<Position, 'id' | 'created_at'>): Promise<Position> {
-    await delay(500);
-    // TODO: Replace with: const { data, error } = await supabase.from('positions').insert(position).select().single()
-    const newPosition: Position = {
-      ...position,
-      id: Math.random().toString(36).substr(2, 9),
-      created_at: new Date().toISOString(),
-    };
-    mockPositions.push(newPosition);
-    return newPosition;
+    const { data, error } = await supabase
+      .from('positions')
+      .insert(position)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Create failed');
+
+    return data as Position;
   },
 
   async updatePosition(id: string, updates: Partial<Position>): Promise<Position> {
-    await delay(500);
-    // TODO: Replace with: const { data, error } = await supabase.from('positions').update(updates).eq('id', id).select().single()
-    const positionIndex = mockPositions.findIndex(p => p.id === id);
-    if (positionIndex === -1) throw new Error('Position not found');
-    mockPositions[positionIndex] = { ...mockPositions[positionIndex], ...updates };
-    return mockPositions[positionIndex];
+    const { data, error } = await supabase
+      .from('positions')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Update failed');
+
+    return data as Position;
   },
 
   async deletePosition(id: string): Promise<void> {
-    await delay(500);
-    // TODO: Replace with: const { error } = await supabase.from('positions').delete().eq('id', id)
-    const positionIndex = mockPositions.findIndex(p => p.id === id);
-    if (positionIndex !== -1) {
-      mockPositions.splice(positionIndex, 1);
-    }
+    const { error } = await supabase
+      .from('positions')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
   },
 };
 
 // ============= APPLICATION SERVICES =============
 export const applicationService = {
   async getApplicationsByApplicant(applicantId: string): Promise<Application[]> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('applications').select('*, position:positions(*, project:projects(*))').eq('applicant_id', applicantId)
-    return mockApplications
-      .filter(a => a.applicant_id === applicantId)
-      .map(a => {
-        const position = mockPositions.find(p => p.id === a.position_id);
-        return {
-          ...a,
-          position: position ? {
-            ...position,
-            project: mockProjects.find(proj => proj.id === position.project_id),
-          } : undefined,
-        };
-      });
+    const { data, error } = await supabase
+      .from('applications')
+      .select('*')
+      .eq('applicant_id', applicantId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    // Fetch positions and projects
+    const positionIds = [...new Set(data.map(a => a.position_id))];
+    const { data: positions } = await supabase
+      .from('positions')
+      .select('*')
+      .in('id', positionIds);
+
+    if (!positions || positions.length === 0) {
+      return data.map(a => ({ ...a, position: undefined })) as Application[];
+    }
+
+    const projectIds = [...new Set(positions.map(p => p.project_id))];
+    const { data: projects } = await supabase
+      .from('projects')
+      .select('*')
+      .in('id', projectIds);
+
+    const positionsWithProjects = positions.map(p => ({
+      ...p,
+      project: projects?.find(proj => proj.id === p.project_id),
+    }));
+
+    return data.map(a => ({
+      ...a,
+      position: positionsWithProjects.find(p => p.id === a.position_id),
+    })) as Application[];
   },
 
   async getApplicationsByPosition(positionId: string): Promise<Application[]> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('applications').select('*, applicant:users(*)').eq('position_id', positionId)
-    return mockApplications
-      .filter(a => a.position_id === positionId)
-      .map(a => ({
-        ...a,
-        applicant: mockUsers.find(u => u.id === a.applicant_id),
-      }));
+    const { data, error } = await supabase
+      .from('applications')
+      .select('*')
+      .eq('position_id', positionId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    // Fetch applicants
+    const applicantIds = [...new Set(data.map(a => a.applicant_id))];
+    const { data: applicants } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', applicantIds);
+
+    return data.map(a => ({
+      ...a,
+      applicant: applicants?.find(u => u.id === a.applicant_id),
+    })) as Application[];
   },
 
   async getApplicationsByProject(projectId: string): Promise<Application[]> {
-    await delay(300);
-    // TODO: Replace with: Complex query joining applications -> positions -> projects
-    const projectPositions = mockPositions.filter(p => p.project_id === projectId);
-    const positionIds = projectPositions.map(p => p.id);
-    return mockApplications
-      .filter(a => positionIds.includes(a.position_id))
-      .map(a => {
-        const position = mockPositions.find(p => p.id === a.position_id);
-        return {
-          ...a,
-          position,
-          applicant: mockUsers.find(u => u.id === a.applicant_id),
-        };
-      });
+    // First get positions for this project
+    const { data: positions } = await supabase
+      .from('positions')
+      .select('id')
+      .eq('project_id', projectId);
+
+    if (!positions || positions.length === 0) return [];
+
+    const positionIds = positions.map(p => p.id);
+
+    const { data, error } = await supabase
+      .from('applications')
+      .select('*')
+      .in('position_id', positionIds)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    // Fetch applicants and full positions
+    const applicantIds = [...new Set(data.map(a => a.applicant_id))];
+    const [applicantsResult, positionsResult] = await Promise.all([
+      supabase.from('profiles').select('*').in('id', applicantIds),
+      supabase.from('positions').select('*').in('id', positionIds)
+    ]);
+
+    return data.map(a => ({
+      ...a,
+      applicant: applicantsResult.data?.find(u => u.id === a.applicant_id),
+      position: positionsResult.data?.find(p => p.id === a.position_id),
+    })) as Application[];
   },
 
-  async createApplication(application: Omit<Application, 'id' | 'created_at' | 'status'>): Promise<Application> {
-    await delay(500);
-    // TODO: Replace with: const { data, error } = await supabase.from('applications').insert({ ...application, status: 'pending' }).select().single()
-    const newApplication: Application = {
-      ...application,
-      id: Math.random().toString(36).substr(2, 9),
-      status: 'pending',
-      created_at: new Date().toISOString(),
-    };
-    mockApplications.push(newApplication);
-    return newApplication;
+  async createApplication(
+    application: Omit<Application, 'id' | 'created_at' | 'status'>
+  ): Promise<Application> {
+    const { data, error } = await supabase
+      .from('applications')
+      .insert({ ...application, status: 'pending' })
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Create failed');
+
+    return data as Application;
   },
 
-  async updateApplicationStatus(id: string, status: 'accepted' | 'rejected'): Promise<Application> {
-    await delay(500);
-    // TODO: Replace with: const { data, error } = await supabase.from('applications').update({ status }).eq('id', id).select().single()
-    const appIndex = mockApplications.findIndex(a => a.id === id);
-    if (appIndex === -1) throw new Error('Application not found');
-    mockApplications[appIndex].status = status;
-    
+  async updateApplicationStatus(
+    id: string, 
+    status: 'accepted' | 'rejected'
+  ): Promise<Application> {
+    const { data, error } = await supabase
+      .from('applications')
+      .update({ status })
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Update failed');
+
     // If accepted, add to project members
     if (status === 'accepted') {
-      const application = mockApplications[appIndex];
-      const position = mockPositions.find(p => p.id === application.position_id);
+      const { data: position } = await supabase
+        .from('positions')
+        .select('project_id, title')
+        .eq('id', data.position_id)
+        .maybeSingle();
+
       if (position) {
-        const newMember: ProjectMember = {
-          id: Math.random().toString(36).substr(2, 9),
-          project_id: position.project_id,
-          user_id: application.applicant_id,
-          role: position.title,
-          joined_at: new Date().toISOString(),
-        };
-        mockProjectMembers.push(newMember);
+        await supabase
+          .from('project_members')
+          .insert({
+            project_id: position.project_id,
+            user_id: data.applicant_id,
+            role: position.title,
+          });
       }
     }
-    
-    return mockApplications[appIndex];
+
+    return data as Application;
   },
 };
 
 // ============= PROJECT MEMBER SERVICES =============
 export const projectMemberService = {
   async getMembersByProject(projectId: string): Promise<ProjectMember[]> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('project_members').select('*, user:users(*), project:projects(*)').eq('project_id', projectId)
-    return mockProjectMembers
-      .filter(m => m.project_id === projectId)
-      .map(m => ({
-        ...m,
-        user: mockUsers.find(u => u.id === m.user_id),
-        project: mockProjects.find(p => p.id === m.project_id),
-      }));
+    const { data, error } = await supabase
+      .from('project_members')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('joined_at', { ascending: false });
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    // Fetch users and project
+    const userIds = [...new Set(data.map(m => m.user_id))];
+    const [usersResult, projectResult] = await Promise.all([
+      supabase.from('profiles').select('*').in('id', userIds),
+      supabase.from('projects').select('*').eq('id', projectId).maybeSingle()
+    ]);
+
+    return data.map(m => ({
+      ...m,
+      user: usersResult.data?.find(u => u.id === m.user_id),
+      project: projectResult.data,
+    })) as ProjectMember[];
   },
 
   async getMembersByUser(userId: string): Promise<ProjectMember[]> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('project_members').select('*, project:projects(*)').eq('user_id', userId)
-    return mockProjectMembers
-      .filter(m => m.user_id === userId)
-      .map(m => ({
-        ...m,
-        project: mockProjects.find(p => p.id === m.project_id),
-      }));
+    const { data, error } = await supabase
+      .from('project_members')
+      .select('*')
+      .eq('user_id', userId)
+      .order('joined_at', { ascending: false });
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    // Fetch projects
+    const projectIds = [...new Set(data.map(m => m.project_id))];
+    const { data: projects } = await supabase
+      .from('projects')
+      .select('*')
+      .in('id', projectIds);
+
+    return data.map(m => ({
+      ...m,
+      project: projects?.find(p => p.id === m.project_id),
+    })) as ProjectMember[];
   },
 };
 
 // ============= REVIEW SERVICES =============
 export const reviewService = {
   async getReviewsForUser(userId: string): Promise<Review[]> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('reviews').select('*, reviewer:users!reviewer_id(*), project:projects(*)').eq('reviewee_id', userId)
-    return mockReviews
-      .filter(r => r.reviewee_id === userId)
-      .map(r => ({
-        ...r,
-        reviewer: mockUsers.find(u => u.id === r.reviewer_id),
-        project: mockProjects.find(p => p.id === r.project_id),
-      }));
+    return userService.getReviewsForUser(userId);
   },
 
   async createReview(review: Omit<Review, 'id' | 'created_at'>): Promise<Review> {
-    await delay(500);
-    // TODO: Replace with: const { data, error } = await supabase.from('reviews').insert(review).select().single()
-    const newReview: Review = {
-      ...review,
-      id: Math.random().toString(36).substr(2, 9),
-      created_at: new Date().toISOString(),
-    };
-    mockReviews.push(newReview);
-    
-    // Update user's average rating
-    const userReviews = mockReviews.filter(r => r.reviewee_id === review.reviewee_id);
-    const avgRating = userReviews.reduce((sum, r) => sum + r.rating, 0) / userReviews.length;
-    const userIndex = mockUsers.findIndex(u => u.id === review.reviewee_id);
-    if (userIndex !== -1) {
-      mockUsers[userIndex].average_rating = Math.round(avgRating * 10) / 10;
-    }
-    
-    return newReview;
+    const { data, error } = await supabase
+      .from('reviews')
+      .insert(review)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Create failed');
+
+    return data as Review;
   },
 };
 
 // ============= MRR SERVICES =============
 export const mrrService = {
   async getMRRByProject(projectId: string): Promise<MRRData[]> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('mrr_data').select('*').eq('project_id', projectId).order('month', { ascending: true })
-    return mockMRRData
-      .filter(m => m.project_id === projectId)
-      .sort((a, b) => a.month.localeCompare(b.month));
+    const { data, error } = await supabase
+      .from('mrr_data')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('month', { ascending: true });
+
+    if (error) throw error;
+    return (data || []) as MRRData[];
   },
 
-  async getMRRByUser(userId: string): Promise<{ projectId: string; projectTitle: string; data: MRRData[] }[]> {
-    await delay(300);
-    // TODO: Replace with: Complex query to get MRR for all projects user is involved in
-    const userProjects = mockProjectMembers
-      .filter(m => m.user_id === userId)
-      .map(m => m.project_id);
-    
-    return userProjects.map(projectId => {
-      const project = mockProjects.find(p => p.id === projectId);
-      const data = mockMRRData
+  async getMRRByUser(
+    userId: string
+  ): Promise<{ projectId: string; projectTitle: string; data: MRRData[] }[]> {
+    // Get user's projects
+    const { data: members } = await supabase
+      .from('project_members')
+      .select('project_id')
+      .eq('user_id', userId);
+
+    if (!members || members.length === 0) return [];
+
+    const projectIds = [...new Set(members.map(m => m.project_id))];
+
+    // Fetch projects and MRR data
+    const [projectsResult, mrrResult] = await Promise.all([
+      supabase.from('projects').select('*').in('id', projectIds),
+      supabase.from('mrr_data').select('*').in('project_id', projectIds)
+    ]);
+
+    const projects = projectsResult.data || [];
+    const allMRR = mrrResult.data || [];
+
+    return projectIds.map(projectId => {
+      const project = projects.find(p => p.id === projectId);
+      const data = allMRR
         .filter(m => m.project_id === projectId)
         .sort((a, b) => a.month.localeCompare(b.month));
+
       return {
         projectId,
         projectTitle: project?.title || 'Unknown Project',
@@ -414,144 +659,220 @@ export const mrrService = {
   },
 
   async addMRRData(mrrData: Omit<MRRData, 'id' | 'created_at'>): Promise<MRRData> {
-    await delay(500);
-    // TODO: This would typically be handled by a Stripe webhook edge function
-    // const { data, error } = await supabase.from('mrr_data').insert(mrrData).select().single()
-    const newMRR: MRRData = {
-      ...mrrData,
-      id: Math.random().toString(36).substr(2, 9),
-      created_at: new Date().toISOString(),
-    };
-    mockMRRData.push(newMRR);
-    return newMRR;
+    const { data, error } = await supabase
+      .from('mrr_data')
+      .insert(mrrData)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Insert failed');
+
+    return data as MRRData;
   },
 };
-
 
 // ============= INVESTMENT ROUND SERVICES =============
 export const investmentRoundService = {
   async getInvestmentRounds(projectId?: string): Promise<InvestmentRound[]> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('investment_rounds').select('*, project:projects(*)').eq(projectId ? 'project_id' : null, projectId)
-    const { mockInvestmentRounds } = await import('../data/mockData');
-    const rounds = projectId 
-      ? mockInvestmentRounds.filter(r => r.project_id === projectId)
-      : mockInvestmentRounds;
-    
-    return rounds.map(r => ({
+    let query = supabase
+      .from('investment_rounds')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (projectId) {
+      query = query.eq('project_id', projectId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    // Fetch projects
+    const projectIds = [...new Set(data.map(r => r.project_id))];
+    const { data: projects } = await supabase
+      .from('projects')
+      .select('*')
+      .in('id', projectIds);
+
+    return data.map(r => ({
       ...r,
-      project: mockProjects.find(p => p.id === r.project_id),
-    }));
+      project: projects?.find(p => p.id === r.project_id),
+    })) as InvestmentRound[];
   },
 
   async getInvestmentRoundById(id: string): Promise<InvestmentRound | null> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('investment_rounds').select('*, project:projects(*)').eq('id', id).single()
-    const { mockInvestmentRounds } = await import('../data/mockData');
-    const round = mockInvestmentRounds.find(r => r.id === id);
-    if (!round) return null;
-    
+    const { data, error } = await supabase
+      .from('investment_rounds')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching investment round:', error);
+      return null;
+    }
+
+    if (!data) return null;
+
+    // Fetch project
+    const { data: project } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', data.project_id)
+      .maybeSingle();
+
     return {
-      ...round,
-      project: mockProjects.find(p => p.id === round.project_id),
-    };
+      ...data,
+      project,
+    } as InvestmentRound;
   },
 
-  async createInvestmentRound(round: Omit<InvestmentRound, 'id' | 'created_at'>): Promise<InvestmentRound> {
-    await delay(500);
-    // TODO: Replace with: const { data, error } = await supabase.from('investment_rounds').insert(round).select().single()
-    const { mockInvestmentRounds } = await import('../data/mockData');
-    const newRound: InvestmentRound = {
-      ...round,
-      id: Math.random().toString(36).substr(2, 9),
-      created_at: new Date().toISOString(),
-    };
-    mockInvestmentRounds.push(newRound);
-    return newRound;
+  async createInvestmentRound(
+    round: Omit<InvestmentRound, 'id' | 'created_at'>
+  ): Promise<InvestmentRound> {
+    const { data, error } = await supabase
+      .from('investment_rounds')
+      .insert(round)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Create failed');
+
+    return data as InvestmentRound;
   },
 
-  async updateInvestmentRound(id: string, updates: Partial<InvestmentRound>): Promise<InvestmentRound> {
-    await delay(500);
-    // TODO: Replace with: const { data, error } = await supabase.from('investment_rounds').update(updates).eq('id', id).select().single()
-    const { mockInvestmentRounds } = await import('../data/mockData');
-    const roundIndex = mockInvestmentRounds.findIndex(r => r.id === id);
-    if (roundIndex === -1) throw new Error('Investment round not found');
-    mockInvestmentRounds[roundIndex] = { ...mockInvestmentRounds[roundIndex], ...updates };
-    return mockInvestmentRounds[roundIndex];
+  async updateInvestmentRound(
+    id: string, 
+    updates: Partial<InvestmentRound>
+  ): Promise<InvestmentRound> {
+    const { data, error } = await supabase
+      .from('investment_rounds')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Update failed');
+
+    return data as InvestmentRound;
   },
 
-  async getOpenRounds(filters?: { category?: string; minAmount?: number; maxAmount?: number }): Promise<InvestmentRound[]> {
-    await delay(300);
-    // TODO: Replace with Supabase query with filters
-    const { mockInvestmentRounds } = await import('../data/mockData');
-    let rounds = mockInvestmentRounds.filter(r => r.status === 'open');
-    
-    if (filters?.category) {
-      rounds = rounds.filter(r => {
-        const project = mockProjects.find(p => p.id === r.project_id);
-        return project?.category === filters.category;
-      });
-    }
-    
+  async getOpenRounds(filters?: {
+    category?: string;
+    minAmount?: number;
+    maxAmount?: number;
+  }): Promise<InvestmentRound[]> {
+    let query = supabase
+      .from('investment_rounds')
+      .select('*')
+      .eq('status', 'open')
+      .order('created_at', { ascending: false });
+
     if (filters?.minAmount) {
-      rounds = rounds.filter(r => r.amount_seeking >= filters.minAmount!);
+      query = query.gte('amount_seeking', filters.minAmount);
     }
-    
+
     if (filters?.maxAmount) {
-      rounds = rounds.filter(r => r.amount_seeking <= filters.maxAmount!);
+      query = query.lte('amount_seeking', filters.maxAmount);
     }
-    
-    return rounds.map(r => ({
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    // Fetch projects
+    const projectIds = [...new Set(data.map(r => r.project_id))];
+    const { data: projects } = await supabase
+      .from('projects')
+      .select('*')
+      .in('id', projectIds);
+
+    let rounds = data.map(r => ({
       ...r,
-      project: mockProjects.find(p => p.id === r.project_id),
-    }));
+      project: projects?.find(p => p.id === r.project_id),
+    })) as InvestmentRound[];
+
+    // Filter by category if needed
+    if (filters?.category) {
+      rounds = rounds.filter(r => r.project?.category === filters.category);
+    }
+
+    return rounds;
   },
 };
 
 // ============= INVESTMENT SERVICES =============
 export const investmentService = {
   async getInvestments(roundId?: string, investorId?: string): Promise<Investment[]> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('investments').select('*, round:investment_rounds(*), investor:users(*)').eq(roundId ? 'round_id' : null, roundId).eq(investorId ? 'investor_id' : null, investorId)
-    const { mockInvestments, mockInvestmentRounds, allUsers } = await import('../data/mockData');
-    let investments = mockInvestments;
-    
+    let query = supabase
+      .from('investments')
+      .select('*')
+      .order('created_at', { ascending: false });
+
     if (roundId) {
-      investments = investments.filter(i => i.round_id === roundId);
+      query = query.eq('round_id', roundId);
     }
-    
+
     if (investorId) {
-      investments = investments.filter(i => i.investor_id === investorId);
+      query = query.eq('investor_id', investorId);
     }
-    
-    return investments.map(i => ({
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    // Fetch rounds and investors
+    const roundIds = [...new Set(data.map(i => i.round_id))];
+    const investorIds = [...new Set(data.map(i => i.investor_id))];
+
+    const [roundsResult, investorsResult] = await Promise.all([
+      supabase.from('investment_rounds').select('*').in('id', roundIds),
+      supabase.from('profiles').select('*').in('id', investorIds)
+    ]);
+
+    return data.map(i => ({
       ...i,
-      round: mockInvestmentRounds.find(r => r.id === i.round_id),
-      investor: allUsers.find(u => u.id === i.investor_id),
-    }));
+      round: roundsResult.data?.find(r => r.id === i.round_id),
+      investor: investorsResult.data?.find(u => u.id === i.investor_id),
+    })) as Investment[];
   },
 
-  async createInvestment(investment: Omit<Investment, 'id' | 'date'>): Promise<Investment> {
-    await delay(500);
-    // TODO: Replace with: const { data, error } = await supabase.from('investments').insert(investment).select().single()
-    const { mockInvestments } = await import('../data/mockData');
-    const newInvestment: Investment = {
-      ...investment,
-      id: Math.random().toString(36).substr(2, 9),
-      date: new Date().toISOString(),
-    };
-    mockInvestments.push(newInvestment);
-    return newInvestment;
+  async createInvestment(
+    investment: Omit<Investment, 'id' | 'date'>
+  ): Promise<Investment> {
+    const { data, error } = await supabase
+      .from('investments')
+      .insert(investment)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Create failed');
+
+    return data as Investment;
   },
 
-  async updateInvestmentStatus(id: string, status: 'pending' | 'confirmed'): Promise<Investment> {
-    await delay(500);
-    // TODO: Replace with: const { data, error } = await supabase.from('investments').update({ status }).eq('id', id).select().single()
-    const { mockInvestments } = await import('../data/mockData');
-    const investmentIndex = mockInvestments.findIndex(i => i.id === id);
-    if (investmentIndex === -1) throw new Error('Investment not found');
-    mockInvestments[investmentIndex].status = status;
-    return mockInvestments[investmentIndex];
+  async updateInvestmentStatus(
+    id: string, 
+    status: 'pending' | 'confirmed'
+  ): Promise<Investment> {
+    const { data, error } = await supabase
+      .from('investments')
+      .update({ status })
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Update failed');
+
+    return data as Investment;
   },
 
   async getInvestorPortfolio(investorId: string): Promise<{
@@ -559,24 +880,47 @@ export const investmentService = {
     totalInvested: number;
     portfolioCount: number;
   }> {
-    await delay(300);
-    // TODO: Replace with Supabase aggregation query
-    const { mockInvestments, mockInvestmentRounds, allUsers } = await import('../data/mockData');
-    const investments = mockInvestments
-      .filter(i => i.investor_id === investorId && i.status === 'confirmed')
-      .map(i => ({
+    const { data, error } = await supabase
+      .from('investments')
+      .select('*')
+      .eq('investor_id', investorId)
+      .eq('status', 'confirmed')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const investments = data || [];
+
+    // Fetch rounds and investors
+    if (investments.length > 0) {
+      const roundIds = [...new Set(investments.map(i => i.round_id))];
+      const [roundsResult, investorsResult] = await Promise.all([
+        supabase.from('investment_rounds').select('*').in('id', roundIds),
+        supabase.from('profiles').select('*').eq('id', investorId).maybeSingle()
+      ]);
+
+      const investmentsWithData = investments.map(i => ({
         ...i,
-        round: mockInvestmentRounds.find(r => r.id === i.round_id),
-        investor: allUsers.find(u => u.id === i.investor_id),
-      }));
-    
-    const totalInvested = investments.reduce((sum, i) => sum + i.amount_invested, 0);
-    const uniqueProjects = new Set(investments.map(i => i.round?.project_id));
-    
+        round: roundsResult.data?.find(r => r.id === i.round_id),
+        investor: investorsResult.data,
+      })) as Investment[];
+
+      const totalInvested = investments.reduce((sum, i) => sum + i.amount_invested, 0);
+      const uniqueProjects = new Set(
+        roundsResult.data?.map(r => r.project_id) || []
+      );
+
+      return {
+        investments: investmentsWithData,
+        totalInvested,
+        portfolioCount: uniqueProjects.size,
+      };
+    }
+
     return {
-      investments,
-      totalInvested,
-      portfolioCount: uniqueProjects.size,
+      investments: [],
+      totalInvested: 0,
+      portfolioCount: 0,
     };
   },
 };
@@ -584,39 +928,58 @@ export const investmentService = {
 // ============= INVESTOR REVIEW SERVICES =============
 export const investorReviewService = {
   async getInvestorReviews(investorId: string): Promise<InvestorReview[]> {
-    await delay(300);
-    // TODO: Replace with: const { data, error } = await supabase.from('investor_reviews').select('*, reviewer:users!reviewer_id(*), investor:users!investor_id(*), project:projects(*)').eq('investor_id', investorId)
-    const { mockInvestorReviews, allUsers } = await import('../data/mockData');
-    return mockInvestorReviews
-      .filter(r => r.investor_id === investorId)
-      .map(r => ({
-        ...r,
-        reviewer: allUsers.find(u => u.id === r.reviewer_id),
-        investor: allUsers.find(u => u.id === r.investor_id),
-        project: mockProjects.find(p => p.id === r.project_id),
-      }));
+    const { data, error } = await supabase
+      .from('investor_reviews')
+      .select('*')
+      .eq('investor_id', investorId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    // Fetch reviewers, investors, and projects
+    const reviewerIds = [...new Set(data.map(r => r.reviewer_id))];
+    const projectIds = [...new Set(data.map(r => r.project_id))];
+
+    const [reviewersResult, investorResult, projectsResult] = await Promise.all([
+      supabase.from('profiles').select('*').in('id', reviewerIds),
+      supabase.from('profiles').select('*').eq('id', investorId).maybeSingle(),
+      supabase.from('projects').select('*').in('id', projectIds)
+    ]);
+
+    return data.map(r => ({
+      ...r,
+      reviewer: reviewersResult.data?.find(u => u.id === r.reviewer_id),
+      investor: investorResult.data,
+      project: projectsResult.data?.find(p => p.id === r.project_id),
+    })) as InvestorReview[];
   },
 
-  async createInvestorReview(review: Omit<InvestorReview, 'id' | 'created_at'>): Promise<InvestorReview> {
-    await delay(500);
-    // TODO: Replace with: const { data, error } = await supabase.from('investor_reviews').insert(review).select().single()
-    const { mockInvestorReviews } = await import('../data/mockData');
-    const newReview: InvestorReview = {
-      ...review,
-      id: Math.random().toString(36).substr(2, 9),
-      created_at: new Date().toISOString(),
-    };
-    mockInvestorReviews.push(newReview);
-    return newReview;
+  async createInvestorReview(
+    review: Omit<InvestorReview, 'id' | 'created_at'>
+  ): Promise<InvestorReview> {
+    const { data, error } = await supabase
+      .from('investor_reviews')
+      .insert(review)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Create failed');
+
+    return data as InvestorReview;
   },
 
   async getAverageInvestorRating(investorId: string): Promise<number> {
-    await delay(200);
-    // TODO: Replace with: Supabase aggregate query
-    const { mockInvestorReviews } = await import('../data/mockData');
-    const reviews = mockInvestorReviews.filter(r => r.investor_id === investorId);
-    if (reviews.length === 0) return 0;
-    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
-    return sum / reviews.length;
+    const { data, error } = await supabase
+      .from('investor_reviews')
+      .select('rating')
+      .eq('investor_id', investorId);
+
+    if (error) throw error;
+    if (!data || data.length === 0) return 0;
+
+    const sum = data.reduce((acc, r) => acc + r.rating, 0);
+    return sum / data.length;
   },
 };
