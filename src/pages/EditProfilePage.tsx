@@ -141,8 +141,6 @@ export const EditProfilePage: React.FC = () => {
         twitter_url: data.social_links?.twitter || '',
         website_url: data.social_links?.website || '',
         portfolio_url: data.social_links?.portfolio || '',
-        // Remove the JSON social_links field as we're using individual fields
-        social_links: undefined,
       };
       
       await userService.updateUser(currentUser.id, databaseUpdates);
