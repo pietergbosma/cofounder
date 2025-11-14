@@ -10,8 +10,23 @@ export interface User {
   contact: string;
   avatar_url: string;
   created_at: string;
+  updated_at?: string;
   average_rating?: number;
   user_type: 'founder' | 'investor';
+  // Enhanced profile fields
+  availability_status?: 'available' | 'looking_for_projects' | 'busy' | 'not_available';
+  location?: string;
+  timezone?: string;
+  social_links?: {
+    linkedin?: string;
+    github?: string;
+    twitter?: string;
+    portfolio?: string;
+    website?: string;
+  };
+  professional_summary?: string;
+  achievements?: string[];
+  skill_proficiencies?: { [key: string]: 'beginner' | 'intermediate' | 'advanced' | 'expert' };
   // Investor-specific fields
   investment_focus?: string[];
   investment_range_min?: number;

@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { EnvironmentDiagnostic, setupEnvironmentDiagnostic } from './components/EnvironmentDiagnostic';
 import { VersionBanner } from './components/VersionBanner';
+import { SupabaseConfigWarning } from './components/SupabaseConfigWarning';
+import { isSupabaseConfigured } from './lib/supabaseClient';
 
 // Setup environment diagnostic on app start
 setupEnvironmentDiagnostic();
@@ -12,6 +14,7 @@ import { SignupPage } from './pages/SignupPage';
 import { LandingPage } from './pages/LandingPage';
 import { HomePage } from './pages/HomePage';
 import { ProfilePage } from './pages/ProfilePage';
+import { EditProfilePage } from './pages/EditProfilePage';
 import { BrowseProjectsPage } from './pages/BrowseProjectsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { MyProjectsPage } from './pages/MyProjectsPage';
@@ -67,6 +70,11 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
+  // Show configuration warning if Supabase is not configured
+  if (!isSupabaseConfigured) {
+    return <SupabaseConfigWarning />;
+  }
+
   return (
     <BrowserRouter>
       <AuthProvider>
@@ -105,6 +113,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile/edit"
+            element={
+              <ProtectedRoute>
+                <EditProfilePage />
               </ProtectedRoute>
             }
           />

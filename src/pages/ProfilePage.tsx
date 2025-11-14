@@ -1,14 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Mail, Edit } from 'lucide-react';
+import {
+  Mail,
+  MapPin,
+  Clock,
+  Edit,
+  Linkedin,
+  Github,
+  Twitter,
+  Globe,
+  ExternalLink,
+  Award,
+} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navbar } from '../components/shared/Navbar';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { SkillBadge } from '../components/ui/SkillBadge';
 import { StarRating } from '../components/ui/StarRating';
 import { ReviewCard } from '../components/shared/ReviewCard';
+import { ProfileCompletionIndicator } from '../components/ui/ProfileCompletionIndicator';
+import { SkillCategory } from '../components/ui/SkillCategory';
+import { ProjectShowcaseCard } from '../components/ui/ProjectShowcaseCard';
 import { userService, projectMemberService, reviewService } from '../services/api';
+import { profileService } from '../services/profileService';
 import { User, ProjectMember, Review } from '../types';
 
 export const ProfilePage: React.FC = () => {
@@ -19,18 +33,7 @@ export const ProfilePage: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [projects, setProjects] = useState<ProjectMember[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  // Edit form state
-  const [editForm, setEditForm] = useState({
-    name: '',
-    bio: '',
-    experience: '',
-    contact: '',
-    skills: [] as string[],
-    newSkill: '',
-  });
 
   const isOwnProfile = !userId || userId === currentUser?.id;
   const profileUserId = userId || currentUser?.id;
@@ -48,14 +51,6 @@ export const ProfilePage: React.FC = () => {
 
         if (userData) {
           setUser(userData);
-          setEditForm({
-            name: userData.name,
-            bio: userData.bio,
-            experience: userData.experience,
-            contact: userData.contact,
-            skills: [...userData.skills],
-            newSkill: '',
-          });
         }
         setProjects(projectData);
         setReviews(reviewData);
@@ -68,41 +63,6 @@ export const ProfilePage: React.FC = () => {
 
     fetchProfile();
   }, [profileUserId]);
-
-  const handleSaveProfile = async () => {
-    if (!profileUserId) return;
-
-    try {
-      const updated = await userService.updateUser(profileUserId, {
-        name: editForm.name,
-        bio: editForm.bio,
-        experience: editForm.experience,
-        contact: editForm.contact,
-        skills: editForm.skills,
-      });
-      setUser(updated);
-      setEditing(false);
-    } catch (error) {
-      console.error('Error updating profile:', error);
-    }
-  };
-
-  const handleAddSkill = () => {
-    if (editForm.newSkill.trim() && !editForm.skills.includes(editForm.newSkill.trim())) {
-      setEditForm({
-        ...editForm,
-        skills: [...editForm.skills, editForm.newSkill.trim()],
-        newSkill: '',
-      });
-    }
-  };
-
-  const handleRemoveSkill = (skill: string) => {
-    setEditForm({
-      ...editForm,
-      skills: editForm.skills.filter(s => s !== skill),
-    });
-  };
 
   if (loading) {
     return (
@@ -129,124 +89,149 @@ export const ProfilePage: React.FC = () => {
     );
   }
 
+  const completion = profileService.calculateProfileCompletion(user);
+  const skillsWithProficiency = profileService.formatSkillsWithProficiency(user);
+  const availabilityLabel = profileService.getAvailabilityLabel(user.availability_status);
+  const availabilityColor = profileService.getAvailabilityColor(user.availability_status);
+
+  const socialLinks = [
+    { icon: Linkedin, url: user.social_links?.linkedin, label: 'LinkedIn', color: 'text-blue-600' },
+    { icon: Github, url: user.social_links?.github, label: 'GitHub', color: 'text-gray-800' },
+    { icon: Twitter, url: user.social_links?.twitter, label: 'Twitter', color: 'text-blue-400' },
+    { icon: Globe, url: user.social_links?.portfolio, label: 'Portfolio', color: 'text-indigo-600' },
+    { icon: Globe, url: user.social_links?.website, label: 'Website', color: 'text-indigo-600' },
+  ].filter(link => link.url);
+
   return (
     <>
       <Navbar />
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Profile Header */}
-          <Card className="mb-8">
-            <div className="flex items-start gap-6">
+        {/* Profile Header */}
+        <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
               <img
                 src={user.avatar_url}
                 alt={user.name}
-                className="w-24 h-24 rounded-full"
+                className="w-32 h-32 rounded-full border-4 border-white shadow-lg"
               />
               <div className="flex-1">
-                {editing ? (
-                  <input
-                    type="text"
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    className="text-3xl font-bold mb-2 w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                ) : (
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">{user.name}</h1>
-                )}
-                
-                <div className="flex items-center gap-4 mb-3">
-                  <div className="flex items-center gap-2 text-gray-600">
+                <h1 className="text-4xl font-bold mb-2">{user.name}</h1>
+                <div className="flex flex-wrap items-center gap-4 mb-3 text-indigo-100">
+                  <div className="flex items-center gap-2">
                     <Mail size={18} />
                     <span>{user.email}</span>
                   </div>
-                  {user.average_rating && (
-                    <StarRating rating={user.average_rating} />
+                  {user.location && (
+                    <div className="flex items-center gap-2">
+                      <MapPin size={18} />
+                      <span>{user.location}</span>
+                    </div>
+                  )}
+                  {user.timezone && (
+                    <div className="flex items-center gap-2">
+                      <Clock size={18} />
+                      <span>{user.timezone}</span>
+                    </div>
                   )}
                 </div>
-
-                {editing ? (
-                  <textarea
-                    value={editForm.bio}
-                    onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    placeholder="Tell others about yourself..."
-                  />
-                ) : (
-                  <p className="text-gray-600 mb-4">{user.bio || 'No bio yet'}</p>
-                )}
-
-                {isOwnProfile && (
-                  <div className="flex gap-2 mt-4">
-                    {editing ? (
-                      <>
-                        <Button onClick={handleSaveProfile}>Save Changes</Button>
-                        <Button variant="outline" onClick={() => setEditing(false)}>
-                          Cancel
-                        </Button>
-                      </>
-                    ) : (
-                      <Button variant="outline" onClick={() => setEditing(true)}>
-                        <Edit size={18} className="mr-2" />
-                        Edit Profile
-                      </Button>
-                    )}
+                {user.average_rating && (
+                  <div className="mb-3">
+                    <StarRating rating={user.average_rating} />
                   </div>
                 )}
-              </div>
-            </div>
-          </Card>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-8">
-              {/* Experience */}
-              <Card>
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Experience</h2>
-                {editing ? (
-                  <textarea
-                    value={editForm.experience}
-                    onChange={(e) => setEditForm({ ...editForm, experience: e.target.value })}
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    placeholder="Describe your experience..."
-                  />
-                ) : (
-                  <p className="text-gray-600">{user.experience || 'No experience listed'}</p>
+                {user.availability_status && (
+                  <span className={`inline-block px-4 py-1.5 rounded-full text-sm font-medium ${availabilityColor}`}>
+                    {availabilityLabel}
+                  </span>
                 )}
-              </Card>
+              </div>
+              {isOwnProfile && (
+                <Button
+                  onClick={() => navigate('/profile/edit')}
+                  variant="outline"
+                  className="bg-white text-indigo-600 hover:bg-indigo-50 flex items-center gap-2"
+                >
+                  <Edit size={18} />
+                  Edit Profile
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Main Content */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Bio */}
+              {user.bio && (
+                <Card>
+                  <p className="text-gray-700 text-lg leading-relaxed">{user.bio}</p>
+                </Card>
+              )}
+
+              {/* Professional Summary */}
+              {user.professional_summary && (
+                <Card>
+                  <h2 className="text-xl font-bold text-gray-900 mb-4">Professional Summary</h2>
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    {user.professional_summary}
+                  </p>
+                </Card>
+              )}
+
+              {/* Experience */}
+              {user.experience && (
+                <Card>
+                  <h2 className="text-xl font-bold text-gray-900 mb-4">Experience & Background</h2>
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    {user.experience}
+                  </p>
+                </Card>
+              )}
+
+              {/* Achievements */}
+              {user.achievements && user.achievements.length > 0 && (
+                <Card>
+                  <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <Award className="text-indigo-600" size={24} />
+                    Achievements
+                  </h2>
+                  <ul className="space-y-3">
+                    {user.achievements.map((achievement, index) => (
+                      <li key={index} className="flex items-start gap-3">
+                        <span className="text-indigo-600 mt-1">•</span>
+                        <span className="text-gray-700 flex-1">{achievement}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
 
               {/* Projects */}
-              <Card>
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Projects & Roles</h2>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                  Projects & Roles ({projects.length})
+                </h2>
                 {projects.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="grid gap-4">
                     {projects.map((membership) => (
-                      <div
-                        key={membership.id}
-                        className="flex justify-between items-start p-4 bg-gray-50 rounded-lg"
-                      >
-                        <div>
-                          <h3 className="font-bold text-gray-900">{membership.project?.title}</h3>
-                          <p className="text-sm text-gray-600">{membership.role}</p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => navigate(`/projects/${membership.project_id}`)}
-                        >
-                          View Project
-                        </Button>
-                      </div>
+                      <ProjectShowcaseCard key={membership.id} membership={membership} />
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-600">Not part of any projects yet</p>
+                  <Card>
+                    <p className="text-gray-600 text-center py-8">Not part of any projects yet</p>
+                  </Card>
                 )}
-              </Card>
+              </div>
 
               {/* Reviews */}
               <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Reviews ({reviews.length})</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                  Reviews ({reviews.length})
+                </h2>
                 {reviews.length > 0 ? (
                   <div className="space-y-4">
                     {reviews.map((review) => (
@@ -263,61 +248,49 @@ export const ProfilePage: React.FC = () => {
 
             {/* Sidebar */}
             <div className="space-y-6">
-              {/* Skills */}
-              <Card>
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Skills</h2>
-                {editing ? (
-                  <>
-                    <div className="flex gap-2 mb-3">
-                      <input
-                        type="text"
-                        value={editForm.newSkill}
-                        onChange={(e) => setEditForm({ ...editForm, newSkill: e.target.value })}
-                        onKeyPress={(e) => e.key === 'Enter' && handleAddSkill()}
-                        placeholder="Add a skill..."
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      />
-                      <Button size="sm" onClick={handleAddSkill}>Add</Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {editForm.skills.map((skill) => (
-                        <SkillBadge
-                          key={skill}
-                          skill={skill}
-                          removable
-                          onRemove={() => handleRemoveSkill(skill)}
-                        />
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {user.skills.length > 0 ? (
-                      user.skills.map((skill) => <SkillBadge key={skill} skill={skill} />)
-                    ) : (
-                      <p className="text-gray-600 text-sm">No skills listed</p>
-                    )}
-                  </div>
-                )}
-              </Card>
+              {/* Profile Completion (only for own profile) */}
+              {isOwnProfile && (
+                <ProfileCompletionIndicator
+                  percentage={completion.percentage}
+                  completedFields={completion.completedFields}
+                  missingFields={completion.missingFields}
+                />
+              )}
 
-              {/* Contact */}
-              <Card>
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Contact</h2>
-                {editing ? (
-                  <input
-                    type="text"
-                    value={editForm.contact}
-                    onChange={(e) => setEditForm({ ...editForm, contact: e.target.value })}
-                    placeholder="linkedin.com/in/yourprofile"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  />
-                ) : (
-                  <p className="text-gray-600 text-sm break-all">
-                    {user.contact || 'No contact info'}
-                  </p>
-                )}
-              </Card>
+              {/* Skills */}
+              {skillsWithProficiency.length > 0 && (
+                <SkillCategory skills={skillsWithProficiency} title="Skills & Expertise" />
+              )}
+
+              {/* Social Links */}
+              {socialLinks.length > 0 && (
+                <Card>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Connect</h3>
+                  <div className="space-y-3">
+                    {socialLinks.map((link, index) => (
+                      <a
+                        key={index}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 text-gray-700 hover:text-indigo-600 transition-colors"
+                      >
+                        <link.icon size={20} className={link.color} />
+                        <span className="flex-1 font-medium">{link.label}</span>
+                        <ExternalLink size={16} className="text-gray-400" />
+                      </a>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Contact (old contact field if exists) */}
+              {user.contact && !socialLinks.length && (
+                <Card>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Contact</h3>
+                  <p className="text-gray-600 text-sm break-all">{user.contact}</p>
+                </Card>
+              )}
             </div>
           </div>
         </div>
