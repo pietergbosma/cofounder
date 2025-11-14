@@ -57,6 +57,46 @@ export const EditProfilePage: React.FC = () => {
 
   const watchedFields = watch();
 
+  // Load fresh profile data when component mounts
+  useEffect(() => {
+    const loadProfileData = async () => {
+      if (!currentUser) return;
+
+      try {
+        const profileData = await userService.getUserById(currentUser.id);
+        if (profileData) {
+          // Update form with fresh data
+          setValue('name', profileData.name || '');
+          setValue('bio', profileData.bio || '');
+          setValue('professional_summary', profileData.professional_summary || '');
+          setValue('experience', profileData.experience || '');
+          setValue('location', profileData.location || '');
+          setValue('timezone', profileData.timezone || '');
+          setValue('availability_status', profileData.availability_status || 'available');
+          setValue('skills', profileData.skills || []);
+          setValue('skill_proficiencies', profileData.skill_proficiencies || {});
+          setValue('achievements', profileData.achievements || []);
+          setValue('social_links', {
+            linkedin: profileData.linkedin_url || '',
+            github: profileData.github_url || '',
+            twitter: profileData.twitter_url || '',
+            website: profileData.website_url || '',
+            portfolio: profileData.portfolio_url || '',
+          });
+          
+          // Update avatar state
+          if (profileData.avatar_url) {
+            setAvatarUrl(profileData.avatar_url);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading profile data:', error);
+      }
+    };
+
+    loadProfileData();
+  }, [currentUser?.id, setValue]);
+
   const handleAvatarUpload = async (file: File) => {
     if (!currentUser) return;
 
@@ -96,6 +136,29 @@ export const EditProfilePage: React.FC = () => {
         avatar_url: avatarUrl,
       });
       setSaveSuccess(true);
+      
+      // Reload fresh data to ensure form shows updated values
+      const updatedProfile = await userService.getUserById(currentUser.id);
+      if (updatedProfile) {
+        setValue('name', updatedProfile.name || '');
+        setValue('bio', updatedProfile.bio || '');
+        setValue('professional_summary', updatedProfile.professional_summary || '');
+        setValue('experience', updatedProfile.experience || '');
+        setValue('location', updatedProfile.location || '');
+        setValue('timezone', updatedProfile.timezone || '');
+        setValue('availability_status', updatedProfile.availability_status || 'available');
+        setValue('skills', updatedProfile.skills || []);
+        setValue('skill_proficiencies', updatedProfile.skill_proficiencies || {});
+        setValue('achievements', updatedProfile.achievements || []);
+        setValue('social_links', {
+          linkedin: updatedProfile.linkedin_url || '',
+          github: updatedProfile.github_url || '',
+          twitter: updatedProfile.twitter_url || '',
+          website: updatedProfile.website_url || '',
+          portfolio: updatedProfile.portfolio_url || '',
+        });
+      }
+      
       setTimeout(() => {
         navigate('/profile');
       }, 1000);
