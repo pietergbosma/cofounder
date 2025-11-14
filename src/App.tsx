@@ -239,7 +239,6 @@ function App() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
         <EnvironmentDiagnostic />
-        <VersionBanner />
       </AuthProvider>
     </BrowserRouter>
   );
