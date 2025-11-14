@@ -19,7 +19,7 @@ export const Navbar: React.FC = () => {
   return (
     <nav className="bg-white shadow-md border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex justify-between items-center h-14">
           <Link 
             to={isInvestor ? "/investor-dashboard" : "/dashboard"} 
             className="flex items-center gap-2 text-xl font-bold text-blue-600"
