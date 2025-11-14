@@ -20,8 +20,8 @@ export const storageService = {
 
       // Create unique filename
       const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${userId}/avatars/${fileName}`;
 
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage

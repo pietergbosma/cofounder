@@ -10,6 +10,7 @@ ADD COLUMN IF NOT EXISTS professional_summary TEXT DEFAULT '',
 ADD COLUMN IF NOT EXISTS achievements TEXT[] DEFAULT '{}',
 ADD COLUMN IF NOT EXISTS social_links JSONB DEFAULT '{}',
 ADD COLUMN IF NOT EXISTS portfolio_projects JSONB DEFAULT '[]',
+ADD COLUMN IF NOT EXISTS skill_proficiencies JSONB DEFAULT '{}',
 ADD COLUMN IF NOT EXISTS profile_completion_percentage INTEGER DEFAULT 0,
 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
@@ -88,6 +89,24 @@ CREATE TRIGGER update_profile_completion_trigger
 UPDATE public.profiles 
 SET profile_completion_percentage = calculate_profile_completion(id),
     updated_at = NOW();
+
+-- Enable RLS on profiles table if not already enabled
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist to avoid conflicts
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
+
+-- Create RLS policies for profiles table
+CREATE POLICY "Users can view their own profile" ON public.profiles
+FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Users can update their own profile" ON public.profiles
+FOR UPDATE USING (auth.uid() = id);
+
+CREATE POLICY "Users can insert their own profile" ON public.profiles
+FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- Create storage bucket for profile images if it doesn't exist
 INSERT INTO storage.buckets (id, name, public)
