@@ -99,13 +99,13 @@ CREATE POLICY IF NOT EXISTS "Public Access" ON storage.objects
 FOR SELECT USING (bucket_id = 'profile-images');
 
 CREATE POLICY IF NOT EXISTS "Users can upload their own images" ON storage.objects
-FOR INSERT WITH CHECK (bucket_id = 'profile-images' AND auth.uid()::text = (storage.foldername(name))[1]);
+FOR INSERT WITH CHECK (bucket_id = 'profile-images' AND (storage.foldername(name))[1] = auth.uid()::text);
 
 CREATE POLICY IF NOT EXISTS "Users can update their own images" ON storage.objects
-FOR UPDATE USING (bucket_id = 'profile-images' AND auth.uid()::text = (storage.foldername(name))[1]);
+FOR UPDATE USING (bucket_id = 'profile-images' AND (storage.foldername(name))[1] = auth.uid()::text);
 
 CREATE POLICY IF NOT EXISTS "Users can delete their own images" ON storage.objects
-FOR DELETE USING (bucket_id = 'profile-images' AND auth.uid()::text = (storage.foldername(name))[1]);
+FOR DELETE USING (bucket_id = 'profile-images' AND (storage.foldername(name))[1] = auth.uid()::text);
 
 -- Create index for better performance
 CREATE INDEX IF NOT EXISTS idx_profiles_completion_percentage ON public.profiles(profile_completion_percentage);

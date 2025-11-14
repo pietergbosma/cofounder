@@ -25,7 +25,7 @@ export const storageService = {
 
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
-        .from('profiles')
+        .from('profile-images')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
@@ -38,7 +38,7 @@ export const storageService = {
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
-        .from('profiles')
+        .from('profile-images')
         .getPublicUrl(filePath);
 
       return publicUrl;
@@ -55,13 +55,13 @@ export const storageService = {
     try {
       // Extract file path from URL
       const url = new URL(avatarUrl);
-      const pathParts = url.pathname.split('/profiles/');
+      const pathParts = url.pathname.split('/profile-images/');
       if (pathParts.length < 2) return;
 
       const filePath = pathParts[1];
 
       await supabase.storage
-        .from('profiles')
+        .from('profile-images')
         .remove([filePath]);
     } catch (error) {
       console.error('Error deleting avatar:', error);
@@ -76,11 +76,11 @@ export const storageService = {
     try {
       // Check if bucket exists
       const { data: buckets } = await supabase.storage.listBuckets();
-      const profileBucket = buckets?.find(b => b.name === 'profiles');
+      const profileBucket = buckets?.find(b => b.name === 'profile-images');
 
       if (!profileBucket) {
         // Create bucket with public access
-        await supabase.storage.createBucket('profiles', {
+        await supabase.storage.createBucket('profile-images', {
           public: true,
           fileSizeLimit: 5242880, // 5MB
           allowedMimeTypes: ['image/jpeg', 'image/png', 'image/jpg', 'image/webp']
