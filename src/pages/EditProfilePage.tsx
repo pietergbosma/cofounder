@@ -77,11 +77,11 @@ export const EditProfilePage: React.FC = () => {
           setValue('skill_proficiencies', profileData.skill_proficiencies || {});
           setValue('achievements', Array.isArray(profileData.achievements) ? profileData.achievements : []);
           setValue('social_links', {
-            linkedin: profileData.linkedin_url || '',
-            github: profileData.github_url || '',
-            twitter: profileData.twitter_url || '',
-            website: profileData.website_url || '',
-            portfolio: profileData.portfolio_url || '',
+            linkedin: profileData.social_links?.linkedin || '',
+            github: profileData.social_links?.github || '',
+            twitter: profileData.social_links?.twitter || '',
+            website: profileData.social_links?.website || '',
+            portfolio: profileData.social_links?.portfolio || '',
           });
           
           // Update avatar state
